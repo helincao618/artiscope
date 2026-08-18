@@ -1,0 +1,28 @@
+# Web service.
+fastapi
+uvicorn[standard]
+pydantic
+
+# Multipart form parsing, for the asset upload endpoint.
+python-multipart
+
+# OpenUSD Python bindings (provides the `pxr` import). CPU-only pip wheel --
+# no GPU, no Isaac Sim, no EULA. This is the whole reason joint extraction
+# takes under a second instead of waiting on an Omniverse Kit boot.
+usd-core
+
+# Engine-correctness rules (app/validation.py). NVIDIA's, Apache-2.0, with no
+# dependencies of its own beyond OpenUSD above. Deliberately not reimplemented
+# -- see DIRECTION.md. The viewer degrades gracefully if it is absent.
+omniverse-asset-validator
+
+# Per-part GLB export (app/mesh_export.py).
+trimesh
+numpy
+
+# trimesh optional dep, required by the scene export path.
+networkx
+
+# Decoding authored textures for the textured-view GLB export
+# (app/mesh_export.py, app/usd_materials.py).
+pillow

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>artiscope</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M8 4v24' stroke='%23f0f3f8' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cpath d='M8 8a14 14 0 0 1 14 14' stroke='%23fbbf24' stroke-width='3' fill='none'/%3E%3Ccircle cx='8' cy='8' r='3.5' fill='%2334d399'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/static/app.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "/static/vendor/three.module.js",
+    "three/addons/": "/static/vendor/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div>
+      <h1>artiscope <span class="beta">beta</span></h1>
+      <p class="subtitle">Inspect, drive and check articulated USD &amp; URDF assets</p>
+    </div>
+  </div>
+</header>
+
+<!-- Whole-window drop target -- a delivery dropped anywhere on the page still
+     lands, even outside the dedicated zone in the left panel below. -->
+<div id="dropVeil" class="drop-veil" hidden>
+  <div class="drop-veil-inner">
+    <strong>Drop to add to the library</strong>
+    <span>a .usd/.usdz file, or a .zip of the asset folder</span>
+  </div>
+</div>
+
+<!-- Four regions, each answering exactly one question. Left: what is in this
+     asset and what of it moves. Centre: what it looks like and how it moves.
+     Right: what is wrong with the one thing selected. Bottom: what is wrong
+     with the delivery as a whole. The report and the inspector are two
+     indexes over one set of facts -- by rule, and by object -- so a finding
+     appearing in both is two ways in, not a duplicate. -->
+<main>
+
+  <!-- ── left: intake, then the objects it contains ───────────────── -->
+  <aside class="panel" id="leftPanel">
+    <!-- Step zero: nothing else in this panel means anything until an asset
+         is loaded, so picking one of the library's assets or adding a new
+         one comes first. -->
+    <h2>Asset</h2>
+    <div class="asset-source">
+      <label for="assetSelect">Load from the library</label>
+      <select id="assetSelect"></select>
+
+      <span class="or-divider">or</span>
+
+      <label id="assetDrop" class="asset-drop" for="uploadInput">
+        <strong>Add a new asset</strong>
+        <span>Drop a .usd/.usdz, or a .zip · click to browse</span>
+      </label>
+      <input id="uploadInput" type="file" accept=".usd,.usda,.usdc,.usdz,.urdf,.zip" hidden />
+    </div>
+
+    <!-- One list, not a parts tree beside a joints list: every joint has
+         exactly one child part, so those were two views of one set of rows
+         kept in sync by hand. Keyed on parts because only the complete list
+         can show an absence -- a door that should move and has no joint is
+         invisible in a list of joints. The ones that do move carry their
+         slider inline, which is also what makes their number obvious. -->
+    <h2>Parts <span id="partCount" class="heading-count"></span></h2>
+    <div class="joint-actions">
+      <button id="btnSweep" title="Drive every joint through its full range">Sweep all joints</button>
+      <button id="btnReset" title="Return every joint to zero">Reset all joints</button>
+    </div>
+    <div id="objectList" class="object-list"></div>
+  </aside>
+
+  <!-- ── centre: viewport ────────────────────────────────────────── -->
+  <section class="viewport" id="viewport">
+    <div id="canvasHost"></div>
+    <div id="viewportOverlay" class="overlay">Loading…</div>
+    <!-- Only shown when the reader met a joint it cannot model. A missing
+         joint must never be mistaken for a joint the asset never had. -->
+    <div class="banner-stack">
+      <!-- Leads the stack: the other two are about pieces of the picture, this
+           one is about the whole of it being turned the wrong way up. -->
+      <div id="upAxisBanner" class="unread-banner" hidden></div>
+      <div id="unreadBanner" class="unread-banner" hidden></div>
+      <!-- Only shown when the exported GLB had to deviate from the source
+           geometry: a decimated or dropped part. -->
+      <div id="geometryBanner" class="unread-banner" hidden></div>
+    </div>
+    <!-- Everything here is a standing preference about the view, so it lives
+         on the view rather than in a panel: top-right of the canvas, the
+         same corner as physics-authoring's viewer toolbar and as the overlay
+         popovers in Blender, Unity and Unreal. -->
+    <div class="viewport-toolbar">
+      <span id="dragHint" class="hint"></span>
+      <!-- A one-shot camera action, so it stays a button you can hit in one
+           click. Inside the menu it cost a click, a hunt and a round trip, and
+           had to special-case closing the menu behind itself. -->
+      <button id="btnFrame" class="view-pill" type="button"
+        title="Fit the camera to the whole asset">Reset view</button>
+      <div class="display-menu">
+        <button id="btnDisplay" class="view-pill" type="button"
+          aria-haspopup="true" aria-expanded="false">Display<!--
+          --><span id="displayCount" class="pill-count" hidden></span> ▾</button>
+        <!-- Grouped by what you are trying to see, and the groups ordered by
+             how often that comes up: reading a hinge is the whole job, so its
+             overlays sit at the top. The colour each mark draws in is on the
+             mark itself once it is on screen, so a legend chip repeating that
+             colour next to a label nobody reads twice is not worth the row. -->
+        <div id="displayPanel" class="display-panel toggles" hidden>
+          <span class="toggle-group">Joint overlays</span>
+          <label><input type="checkbox" id="toggleGizmoAll" /> Show all joint axes</label>
+          <label><input type="checkbox" id="toggleLabels" checked /> Joint labels</label>
+          <label><input type="checkbox" id="toggleEnvelope" /> Swept volume</label>
+
+          <!-- Not shading: these three are the tool pointing at something,
+               which is the same intent as the overlays above. -->
+          <span class="toggle-group">Emphasis</span>
+          <!-- Off by default: a permanent red outline on every part the
+               engine will eventually refuse is a strong claim for a first
+               look at a file that opens either way. -->
+          <label><input type="checkbox" id="toggleFaults" /> Highlight errors</label>
+          <label><input type="checkbox" id="toggleIsolate" /> Isolate selected</label>
+          <label><input type="checkbox" id="toggleExploded" /> Exploded view</label>
+
+          <!-- What the file says about simulating the part, not just drawing
+               it. Off by default for the same reason "Highlight errors" is:
+               a marker for every part with an authored mass is a lot of
+               spheres on a kitchen full of them, and this is for the moment
+               you are actually asking "what does this weigh" or "what would
+               a physics engine collide against". -->
+          <span class="toggle-group">Physics</span>
+          <label><input type="checkbox" id="toggleMass" /> Mass &amp; centre of mass</label>
+          <label><input type="checkbox" id="toggleCollision" /> Collision geometry</label>
+
+          <!-- Four states of one surface, so a radio group: as checkboxes the
+               default was the only mode on screen with no name at all -- you
+               had to infer "flat per-part palette" from nothing ticked.
+               Named the way Blender's own viewport-shading switch is: Solid's
+               counterpart here is "Parts" rather than "Solid" itself, because
+               what it shows is not a generic shaded grey but the same
+               per-part colour key as the object list. -->
+          <span class="toggle-group">Surface</span>
+          <div class="mode-list">
+            <label><input type="radio" name="surfaceMode" value="parts" checked /><span>Parts</span></label>
+            <label><input type="radio" name="surfaceMode" value="materials" /><span>Texture</span></label>
+            <label><input type="radio" name="surfaceMode" value="wireframe" /><span>Wireframe</span></label>
+            <label><input type="radio" name="surfaceMode" value="physics" /><span>Physics Material</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── right: everything about the one thing selected ──────────── -->
+  <aside class="panel" id="rightPanel">
+    <h2>Inspector</h2>
+    <div id="inspector" class="inspector"></div>
+  </aside>
+
+  <!-- ── bottom: the delivery as a whole, indexed by rule ────────── -->
+  <!-- A dock rather than a fourth column: every finding in here points at an
+       object, and reading one means looking at that object's detail. In a
+       column the two would take turns; across the bottom they coexist, and
+       the rule names and prim paths get the width they need. Collapsed, it
+       is the status strip -- the verdict never scrolls away, which is the
+       one thing it has to do. -->
+  <section id="reportDock" class="report-dock">
+    <div class="dock-bar">
+      <button id="btnDockToggle" class="dock-toggle" type="button"
+        aria-expanded="false" aria-controls="dockBody">Report</button>
+      <div id="statusStrip" class="status-strip"></div>
+      <!-- Bundles the joint manifest along with the report (see /api/report),
+           so it stays with the report rather than inside either section. -->
+      <button id="btnDownload" class="ghost-small" title="Download manifest, validation and inventory as one file">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 1.5v8.5M8 10 4.5 6.5M8 10l3.5-3.5" stroke="currentColor"
+            stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M2.5 12.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1" stroke="currentColor"
+            stroke-width="1.4" stroke-linecap="round" />
+        </svg>
+        Download report
+      </button>
+    </div>
+
+    <!-- Sections are built in app.js from the findings themselves, because
+         which of them an asset has is a property of that asset. They are
+         ordered by what kind of statement each carries, never by which check
+         produced it -- NVIDIA's rules stay attributed to them on the card,
+         but attribution is not structure. See app/findings.py. -->
+    <div id="dockBody" class="dock-body" hidden>
+      <div id="findingsPanel" class="findings"></div>
+    </div>
+  </section>
+
+</main>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

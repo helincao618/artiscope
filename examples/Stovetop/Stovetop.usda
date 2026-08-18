@@ -1,0 +1,221 @@
+#usda 1.0
+(
+    defaultPrim = "root"
+    doc = """Stovetop: four control knobs, and nothing wrong with it.
+
+    The negative control. Every other example here carries a defect on purpose,
+    which makes them useless for one question: does a clean bill of health mean
+    anything, or does this tool report faults on everything it is shown?
+
+    So this one is authored the way the conventions say: each joint names a
+    `body1` that is the rigid body it drives, every limit is authored, every
+    mass is authored, no texture points anywhere it cannot resolve, and the
+    stage declares its up axis and its units. Engine rules pass with nothing to
+    report, and the viewer says so instead of showing an empty panel.
+    """
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "root"
+{
+    def Scope "Materials"
+    {
+        def Material "Ceramic"
+        {
+            token outputs:surface.connect = </root/Materials/Ceramic/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.09, 0.09, 0.1)
+                float inputs:roughness = 0.2
+                token outputs:surface
+            }
+        }
+
+        def Material "Knob"
+        {
+            token outputs:surface.connect = </root/Materials/Knob/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.62, 0.63, 0.65)
+                float inputs:metallic = 0.6
+                float inputs:roughness = 0.4
+                token outputs:surface
+            }
+        }
+    }
+
+    def Xform "Stovetop_Body001" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 12
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0, 0, 0), (0.6, 0.52, 0.04)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Ceramic>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0, 0, 0), (0.6, 0, 0), (0.6, 0.52, 0), (0, 0.52, 0), (0, 0, 0.04), (0.6, 0, 0.04), (0.6, 0.52, 0.04), (0, 0.52, 0.04)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+    }
+
+    def Xform "Stovetop_Knob001" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 0.05
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0.06, 0.04, 0.04), (0.12, 0.1, 0.07)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Knob>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0.06, 0.04, 0.04), (0.12, 0.04, 0.04), (0.12, 0.1, 0.04), (0.06, 0.1, 0.04), (0.06, 0.04, 0.07), (0.12, 0.04, 0.07), (0.12, 0.1, 0.07), (0.06, 0.1, 0.07)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Stovetop_Body001>
+            rel physics:body1 = </root/Stovetop_Knob001>
+            point3f physics:localPos0 = (0.09, 0.07, 0.055)
+            point3f physics:localPos1 = (0.09, 0.07, 0.055)
+            float physics:lowerLimit = -270
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Stovetop_Knob002" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 0.05
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0.18, 0.04, 0.04), (0.24, 0.1, 0.07)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Knob>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0.18, 0.04, 0.04), (0.24, 0.04, 0.04), (0.24, 0.1, 0.04), (0.18, 0.1, 0.04), (0.18, 0.04, 0.07), (0.24, 0.04, 0.07), (0.24, 0.1, 0.07), (0.18, 0.1, 0.07)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Stovetop_Body001>
+            rel physics:body1 = </root/Stovetop_Knob002>
+            point3f physics:localPos0 = (0.21, 0.07, 0.055)
+            point3f physics:localPos1 = (0.21, 0.07, 0.055)
+            float physics:lowerLimit = -270
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Stovetop_Knob003" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 0.05
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0.36, 0.04, 0.04), (0.42, 0.1, 0.07)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Knob>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0.36, 0.04, 0.04), (0.42, 0.04, 0.04), (0.42, 0.1, 0.04), (0.36, 0.1, 0.04), (0.36, 0.04, 0.07), (0.42, 0.04, 0.07), (0.42, 0.1, 0.07), (0.36, 0.1, 0.07)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Stovetop_Body001>
+            rel physics:body1 = </root/Stovetop_Knob003>
+            point3f physics:localPos0 = (0.39, 0.07, 0.055)
+            point3f physics:localPos1 = (0.39, 0.07, 0.055)
+            float physics:lowerLimit = -270
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Stovetop_Knob004" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 0.05
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0.48, 0.04, 0.04), (0.54, 0.1, 0.07)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Knob>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0.48, 0.04, 0.04), (0.54, 0.04, 0.04), (0.54, 0.1, 0.04), (0.48, 0.1, 0.04), (0.48, 0.04, 0.07), (0.54, 0.04, 0.07), (0.54, 0.1, 0.07), (0.48, 0.1, 0.07)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Stovetop_Body001>
+            rel physics:body1 = </root/Stovetop_Knob004>
+            point3f physics:localPos0 = (0.51, 0.07, 0.055)
+            point3f physics:localPos1 = (0.51, 0.07, 0.055)
+            float physics:lowerLimit = -270
+            float physics:upperLimit = 0
+        }
+    }
+}
+

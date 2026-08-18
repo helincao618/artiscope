@@ -1,0 +1,34 @@
+artiscope
+========
+
+This product includes third-party software.
+
+--------------------------------------------------------------------------
+Omni Asset Validator (omniverse-asset-validator)
+Copyright (c) NVIDIA Corporation
+Licensed under the Apache License, Version 2.0
+https://docs.omniverse.nvidia.com/kit/docs/asset-validator
+
+Used as the source of engine-correctness rules for USD assets. artiscope does
+not modify the rules; it runs the validator and maps its findings onto the
+parts and joints they concern. See DIRECTION.md for why this boundary exists.
+
+You may obtain a copy of the Apache License 2.0 at
+http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------
+OpenUSD (usd-core)
+Copyright (c) Pixar Animation Studios
+Licensed under the Tomorrow Open Source Technology License 1.0
+(a modified Apache License 2.0)
+https://openusd.org
+
+Used to read USD stages, joint schemas and material networks.
+
+--------------------------------------------------------------------------
+three.js
+Copyright (c) three.js authors
+Licensed under the MIT License
+https://threejs.org
+
+Vendored under app/static/vendor/ for the browser viewer.

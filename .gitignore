@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Exported GLBs, regenerated from the source USD on demand.
+cache/
+
+# Saved reports. Archive these somewhere deliberate rather than letting them
+# accumulate in the working tree.
+reports/
+
+# Your own assets. `examples/` is the committed default; point
+# ARTISCOPE_ASSET_DIR at a directory like this one to review a real delivery
+# without copying anything into the repo.
+assets/
+local/
+
+# Optional private corpus for the test suite, addressed via
+# ARTISCOPE_FIXTURE_DIR. Absent on a fresh checkout, where the suite runs
+# against `examples/` instead.
+tests/assets

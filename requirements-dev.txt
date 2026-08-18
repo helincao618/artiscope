@@ -1,0 +1,12 @@
+-r requirements.txt
+
+pytest
+
+# Drives the FastAPI app in-process; no socket needed.
+httpx
+
+# Browser tests. The viewer is most of this tool, so a suite that only covered
+# the Python would be testing the easy half: tests/test_ui.py loads the real
+# page and checks that driving a joint actually moves geometry and that the
+# limit stops hold. Needs a Chrome on PATH; those tests skip without one.
+playwright

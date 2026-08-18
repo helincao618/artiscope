@@ -1,0 +1,795 @@
+/* artiscope review UI.
+   Dark and dense. Three columns over a dock, one region per question: the
+   object list and the inspector both stay visible while the viewport is being
+   driven, because the whole job is comparing what the numbers claim against
+   what the asset does. */
+
+:root {
+  --bg: #0b0e13;
+  --panel: #12161d;
+  --panel-2: #171c25;
+  --panel-3: #1f2530;
+  --line: #262d3a;
+  --text: #e6eaf2;
+  --text-dim: #8b95a7;
+  --accent: #3b82f6;
+  --accent-2: #60a5fa;
+  --accent-soft: rgba(59, 130, 246, 0.14);
+  --good: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --info: #7dd3fc;
+  --radius: 10px;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+/* ── header ──────────────────────────────────────────────────────── */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand img.logo { height: 26px; }
+h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .2px; }
+/* Matches physics-authoring's .beta exactly -- same tool family, same
+   "not a finished product yet" signal. */
+.beta {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.subtitle { margin: 2px 0 0; color: var(--text-dim); font-size: 12px; }
+
+/* ── asset source (left panel, step zero) ───────────────────────── */
+
+.asset-source { display: flex; flex-direction: column; gap: 6px; }
+.asset-source label[for="assetSelect"] { color: var(--text-dim); font-size: 12px; }
+.asset-source select { width: 100%; min-width: 0; }
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.or-divider::before,
+.or-divider::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--line); }
+select, input[type="text"], textarea {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font: inherit;
+  outline: none;
+}
+select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+select { min-width: 240px; }
+textarea { width: 100%; resize: vertical; font-size: 12px; }
+
+button {
+  background: var(--panel-3);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 12px;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── layout ──────────────────────────────────────────────────────── */
+
+main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  /* The inspector is the one thing on screen with wide numeric triples, which
+     wrap badly in a narrow column; the left column holds names and sliders
+     and stays narrow so every row is visible at once, which is what makes a
+     missing joint noticeable. Widths follow that need. */
+  grid-template-columns: 300px 1fr 360px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 1px;
+  background: var(--line);
+}
+
+.panel {
+  background: var(--panel);
+  overflow-y: auto;
+  padding: 12px 14px 24px;
+}
+
+.panel h2 {
+  margin: 16px 0 8px;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-dim);
+}
+.panel h2:first-child { margin-top: 0; }
+
+.viewport { position: relative; background: var(--bg); overflow: hidden; }
+#canvasHost { position: absolute; inset: 0; }
+#canvasHost canvas { display: block; }
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 14, 19, .82);
+  color: var(--text-dim);
+  font-size: 13px;
+  z-index: 5;
+  text-align: center;
+  padding: 24px;
+  white-space: pre-wrap;
+}
+.overlay.hidden { display: none; }
+
+/* ── drop-to-add ─────────────────────────────────────────────────── */
+
+.drop-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 14, 19, .88);
+  /* The veil must not steal the dragleave event from the window handler. */
+  pointer-events: none;
+}
+/* Needed because the `display: flex` above outranks the user agent's
+   `[hidden] { display: none }`, which would leave the veil permanently up. */
+.drop-veil[hidden] { display: none; }
+.drop-veil-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 48px;
+  border: 2px dashed var(--accent, #4b8dd6);
+  border-radius: 8px;
+}
+.drop-veil-inner strong { font-size: 15px; }
+.drop-veil-inner span { color: var(--text-dim); font-size: 12px; }
+
+/* Reader-limitation notice. Deliberately loud: everything else in the UI
+   describes the asset, and this one line describes what the tool failed to
+   read, which a viewer must never let pass unnoticed. */
+/* Below the toolbar row rather than under it -- the toolbar owns the top-right
+   corner, and a banner is loud enough without also covering the control that
+   turns overlays off. */
+.banner-stack {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 50px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.unread-banner {
+  padding: 8px 12px;
+  border: 1px solid var(--warn, #b8873a);
+  border-left-width: 3px;
+  border-radius: 4px;
+  background: rgba(40, 30, 12, .92);
+  color: var(--text, #e6e6e6);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.unread-banner b { color: var(--warn, #d9a441); font-weight: 600; }
+.unread-banner ul { margin: 4px 0 0; padding-left: 18px; }
+.unread-banner code { font-size: 11px; opacity: .85; overflow-wrap: anywhere; }
+
+/* The headline is the message; the prim paths behind it are evidence. Left
+   expanded they cover a fifth of the viewport with near-duplicate text, and
+   the viewport is what the reviewer came for. Capped even when open. */
+.unread-banner details > summary {
+  margin-top: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--warn, #d9a441);
+  opacity: .8;
+}
+.unread-banner details > summary:hover { opacity: 1; }
+.unread-banner details[open] ul { max-height: 26vh; overflow-y: auto; }
+
+/* Anchored to the top-right of the canvas, where every tool in this family
+   keeps its view controls. Content-sized, so it never spans the viewport. */
+.viewport-toolbar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 7;
+}
+/* Anything floating over the canvas has to bring its own ground: a bordered
+   transparent button is legible on the empty backdrop and then vanishes the
+   moment the model drifts under it. Translucent chip plus a blur, the same
+   overlay language as physics-authoring's viewer toolbar. */
+.view-pill,
+.hint {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(5, 8, 13, .6);
+  backdrop-filter: blur(4px);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.view-pill { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-weight: 600; }
+/* The hint is only set while the pointer is over something driveable, so it is
+   empty most of the time -- and a chip with padding and a border is visible
+   even with nothing in it. */
+.hint { color: var(--text-dim); }
+.hint:empty { display: none; }
+
+/* Closed, the menu is otherwise silent about what it is doing: leave Wireframe
+   or Exploded on and the picture is simply wrong, with the only clue folded
+   away. Counts against each toggle's own default, so it reads zero at rest. */
+.pill-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* A standing preference is a click away, not permanent screen space --
+ * opens downward and right-aligned, from the corner it lives in. */
+.display-menu { position: relative; }
+.display-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 5;
+  width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+}
+/* .toggles sets its own `display`, which otherwise beats the `hidden`
+   attribute at equal specificity. */
+.display-panel[hidden] { display: none; }
+
+/* ── object list: one row per part, sliders on the ones that move ── */
+
+.heading-count { font-weight: 400; letter-spacing: 0; text-transform: none; opacity: .8; }
+
+.object-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* One row shape for every part, driveable or not. A row that does not move
+   simply has nothing under its head line, so the ones that do stand out by
+   being taller and carrying a control -- no second style needed to say it. */
+.object-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+.object-row:hover { border-color: var(--panel-3); }
+.object-row.selected { border-color: var(--accent); background: var(--accent-soft); }
+
+.object-head { display: flex; align-items: center; gap: 8px; }
+/* Round, not square: a pale square at the head of a row with a bold label
+   reads as an unticked checkbox, and this is a colour key to the geometry. */
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.object-name { font-weight: 600; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The parts that carry no degree of freedom, kept below the ones that do so
+   the count of things you can drive reads off the top of the list. */
+.object-group {
+  margin: 12px 0 2px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--text-dim);
+}
+
+/* A blocking issue on a part, marked where the part is chosen rather than
+   only where it is inspected -- otherwise finding it means clicking every
+   row in turn. */
+.fault-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bad);
+  flex: 0 0 auto;
+}
+
+.toggles { display: flex; flex-direction: column; gap: 6px; }
+.toggles label { display: flex; align-items: center; gap: 7px; color: var(--text); cursor: pointer; }
+.toggles input { accent-color: var(--accent); }
+/* A checkbox for an overlay the loaded asset has nothing to draw -- no part
+   authors a centre of mass, say -- still exists so its meaning is
+   discoverable, but ticking it would silently do nothing. Disabled plus the
+   title says why, rather than leaving that indistinguishable from a bug. */
+.toggles label:has(input:disabled) { color: var(--text-dim); cursor: not-allowed; }
+
+.toggle-group {
+  margin-top: 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--text-dim);
+}
+.toggle-group:first-child { margin-top: 0; }
+
+/* Mutually exclusive states, one radio per line -- a four-way pill in a
+   220px panel had to squeeze "Physics Material" against three shorter
+   labels, so width competed with legibility. A vertical list has no such
+   ceiling, and it reads as the same kind of list as "Joint overlays" and
+   "Emphasis" above it rather than a one-off widget. */
+.mode-list { display: flex; flex-direction: column; gap: 4px; }
+.mode-list label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.mode-list input { accent-color: var(--accent); margin: 0; flex: 0 0 auto; }
+.mode-list span { font-size: 12px; color: var(--text-dim); user-select: none; }
+.mode-list input:checked + span { color: var(--text); font-weight: 600; }
+.mode-list label:hover input:not(:checked) + span { color: var(--text); }
+.mode-list input:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+/* ── joint list actions -- every joint at once, not one ──────────── */
+
+.joint-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.joint-actions button { flex: 1 1 0; }
+
+/* ── library intake, in the panel about what's loaded ────────────── */
+
+.asset-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.asset-drop:hover,
+.asset-drop.drag { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.asset-drop strong { color: var(--text); font-size: 12px; }
+.asset-drop span { font-size: 11px; }
+
+/* A colour key belongs on the switch that draws the mark, not in a block of
+   its own: as a block it sat wedged between two groups of checkboxes, and it
+   was a reading aid for the canvas living inside a menu you have to close to
+   see the canvas. Right-aligned, so the colours form one scannable column. */
+/* ── report dock: the delivery as a whole, indexed by rule ───────── */
+
+.report-dock {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+
+.dock-bar { display: flex; align-items: center; gap: 16px; padding: 7px 14px; }
+
+.dock-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-dim);
+  background: none;
+}
+.dock-toggle::before { content: "▸"; font-size: 9px; }
+.dock-toggle[aria-expanded="true"]::before { content: "▾"; }
+.dock-toggle:hover { color: var(--text); }
+
+/* Deep enough to read a rule list in, shallow enough that the viewport is
+   still the biggest thing on screen. Only open while the report is what is
+   being read, which is exactly when the 3D view is not. */
+.dock-body {
+  height: 30vh;
+  overflow-y: auto;
+  padding: 4px 14px 18px;
+  border-top: 1px solid var(--line);
+}
+
+/* An icon earns this a second look on a bar that is otherwise text: without
+   one it read as a label, not a control, and sat unused on the far edge. */
+#btnDownload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+#btnDownload svg { flex: 0 0 auto; }
+
+.ghost-small {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+}
+.ghost-small:hover { color: var(--text); border-color: var(--accent); }
+
+/* Collapsed, the dock is this strip and nothing else: whether the engine will
+   take the asset is the one thing that must never scroll away. Ranked left to
+   right: the verdict, then whatever else clears the bar to sit beside it. */
+.status-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  min-width: 0;
+}
+
+.strip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  text-align: left;
+}
+.strip-row:hover { border-color: transparent; }
+
+/* One shape for every row on the strip -- dot, label, count -- coloured by
+   the same modality colours the report body already uses
+   (`.finding-row.rejects/.advises/.omits`), so red still means only what it
+   means there: the engine will refuse this. */
+.verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: currentColor;
+}
+.verdict.blocking { color: var(--bad); border-color: var(--bad); }
+.verdict.clean { color: var(--good); border-color: var(--good); }
+.verdict.advisory { color: var(--warn); border-color: var(--warn); }
+.verdict.partial { color: var(--info); border-color: var(--info); }
+/* Deliberately not green: nothing ran, so nothing passed. */
+.verdict.nochecks { color: var(--warn); border-color: var(--warn); }
+.strip-row:hover .verdict { filter: brightness(1.25); }
+
+/* Evidence for the verdict rather than a rank of its own, so it sits inside
+   the chip and drops the weight the wording carries. */
+.verdict-count { font-family: var(--mono); font-size: 11px; font-weight: 400; opacity: .85; }
+
+details.section { margin-top: 12px; }
+details.section > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+  margin-bottom: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-dim);
+}
+details.section > summary::-webkit-details-marker { display: none; }
+details.section > summary::before { content: "▾"; font-size: 9px; }
+details.section:not([open]) > summary::before { content: "▸"; }
+details.section > summary:hover { color: var(--text); }
+
+/* ── joint controls, inline on the rows that have a joint ────────── */
+
+.badge {
+  font-size: 10px;
+  font-family: var(--mono);
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  flex: 0 0 auto;
+  background: none;
+}
+.badge.revolute { color: var(--accent-2); border-color: var(--accent-2); }
+.badge.prismatic { color: var(--info); border-color: var(--info); }
+.badge.driven { color: var(--good); border-color: var(--good); }
+.badge.free { color: var(--text-dim); }
+.badge.base { color: var(--text-dim); }
+.badge.fixed { color: var(--text-dim); }
+/* A part nothing in the file attaches. Distinct from `fixed`, which is a weld
+   the asset authored on purpose. */
+.badge.loose { color: var(--warn); border-color: var(--warn); }
+
+/* The one badge that is a button: a pointer into the report, not a
+   description of the part, so it earns the affordance the others don't. */
+button.badge.blocking {
+  color: var(--bad);
+  border-color: var(--bad);
+  cursor: pointer;
+  transition: background .12s;
+}
+button.badge.blocking:hover { background: color-mix(in srgb, var(--bad) 15%, transparent); }
+
+.joint-controls { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+input[type="range"] { flex: 1 1 auto; accent-color: var(--accent); min-width: 0; }
+
+.readout {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 74px;
+  text-align: right;
+  flex: 0 0 auto;
+}
+.readout.at-limit { color: var(--warn); font-weight: 700; }
+
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* A locally patched range. Marked, never styled as an error: the tool is
+   doing this, not the asset. */
+.range-labels .overridden {
+  color: var(--warn);
+}
+
+/* ── inspector: everything about the one thing selected ──────────── */
+
+.inspector-empty { color: var(--text-dim); font-size: 12px; line-height: 1.6; }
+
+.inspector-title { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.inspector-title .object-name { font-size: 14px; }
+
+table.kv { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.kv td { padding: 3px 0; vertical-align: top; }
+table.kv td:first-child { color: var(--text-dim); width: 42%; }
+table.kv td:last-child { font-family: var(--mono); font-size: 11px; overflow-wrap: anywhere; }
+
+/* A category, not another parameter -- bold and full brightness rather than
+   the dim tone every field label already uses, so PART and JOINT read as the
+   two things being described rather than one more row of data. Still 10px
+   and no colour of its own: a heading here, not a banner. */
+.subhead {
+  margin: 10px 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--text);
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+/* Each subject's own overflow, right where that subject's summary ends --
+   not a second appendix at the bottom of the panel. Styled like the report's
+   "N more" for the same reason it is one: a quiet way to ask for the rest of
+   one thing, not a section boundary in its own right. */
+.raw-values { margin-top: 4px; }
+.raw-values > summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: .75;
+}
+.raw-values > summary:hover { opacity: 1; color: var(--text); }
+.raw-values > summary::-webkit-details-marker { display: none; }
+.raw-values > summary::before { content: "▸ "; font-size: 9px; }
+.raw-values[open] > summary::before { content: "▾ "; }
+
+/* ── the report ──────────────────────────────────────────────────── */
+
+.findings { display: flex; flex-direction: column; margin-bottom: 16px; }
+
+.pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+
+.pill.clean { color: var(--good); border-color: var(--good); }
+/* Deliberately not green: nothing ran, so nothing passed. */
+.pill.nochecks { color: var(--warn); border-color: var(--warn); }
+
+.section-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  opacity: .7;
+  margin-left: 6px;
+}
+
+/* Inside the card of the finding that named them: these parts are that
+   finding's subject, not a list of their own. */
+.affected-parts {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0 6px 0 0;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--bad);
+  cursor: pointer;
+  text-decoration: underline;
+}
+button.link:hover { opacity: .75; }
+
+/* Where a reader lands after following the badge from the Inspector: a brief
+   pulse, not a permanent marker, because the row's own left border already
+   carries the modality colour once the reader has found it. */
+@keyframes jump-target-pulse {
+  from { background: color-mix(in srgb, var(--bad) 25%, var(--panel-2)); }
+  to { background: var(--panel-2); }
+}
+.finding-row.jump-target { animation: jump-target-pulse 1.6s ease-out; }
+
+/* ── what the asset states ───────────────────────────────────────── */
+
+.panel-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+.pill {
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+}
+
+.dimension { margin-bottom: 10px; }
+
+.dimension h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-dim);
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+.dimension.identifier h3 {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+/* Both halves of the report say the same kind of thing -- a classification,
+   then what was found under it -- so they are one card, and only the left edge
+   and the label differ. */
+.finding-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--panel-2);
+  border-left: 3px solid var(--line);
+  font-size: 12px;
+}
+
+.finding-row { margin-bottom: 3px; }
+
+/* The left edge is the weight of the statement, so it tracks modality and
+   nothing else. `limits` keeps the neutral edge on purpose: it is not a
+   grievance against the asset, it is this tool admitting a gap. */
+.finding-row.rejects { border-left-color: var(--bad); }
+.finding-row.contradicts { border-left-color: var(--bad); }
+.finding-row.advises { border-left-color: var(--warn); }
+.finding-row.omits { border-left-color: var(--info); }
+.finding-row.states { border-left-color: var(--good); }
+
+.finding {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--text-dim);
+  flex: 0 0 auto;
+  min-width: 66px;
+}
+.finding-detail {
+  color: var(--text-dim);
+  display: block;
+  /* Findings quote prim paths inside their own wording, and a path holds no
+     spaces for the layout engine to break on. */
+  overflow-wrap: anywhere;
+}
+
+/* Five doors that each swing 90° are one fact with five subjects, not five
+   findings. The first stands for the group and the rest sit behind it. */
+.finding-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.finding-more { display: flex; flex-direction: column; gap: 4px; }
+.finding-more > summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-dim);
+  opacity: .75;
+}
+.finding-more > summary:hover { opacity: 1; color: var(--text); }
+
+/* ── scrollbars ──────────────────────────────────────────────────── */
+
+.panel::-webkit-scrollbar,
+.dock-body::-webkit-scrollbar { width: 9px; }
+.panel::-webkit-scrollbar-track,
+.dock-body::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb,
+.dock-body::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 5px; }
+.panel::-webkit-scrollbar-thumb:hover,
+.dock-body::-webkit-scrollbar-thumb:hover { background: var(--line); }

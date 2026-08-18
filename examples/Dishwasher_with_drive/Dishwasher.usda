@@ -1,0 +1,237 @@
+#usda 1.0
+(
+    defaultPrim = "root"
+    doc = '''Dishwasher: two motion modes in one asset, and the opposite conventions to `Cabinet`.
+
+    Deliberate properties, each pinned by a test:
+
+    * Colliders are the render meshes -- `PhysicsCollisionAPI` applied directly
+      to the geometry that is drawn, with no separate `Collisions/` scope. An
+      exporter that filtered on the collision schema would produce an empty
+      file here, which is why `purpose` is the only thing that decides whether
+      a mesh is visual.
+    * No mass is authored anywhere. A simulator falls back to density, so
+      nothing may be reported as an authored value: absent has to survive as
+      absent rather than arriving as a zero.
+    * The static body carries no rigid-body schema at all, so root detection
+      cannot lean on `RigidBodyAPI`.
+    * Revolute and prismatic joints in the same asset, so a unit conversion
+      that treats one like the other cannot pass.
+    This copy differs from `Dishwasher` in exactly one respect: the door
+    carries a drive that can actually exert force. It is the control for "does
+    this tool notice a drive at all" -- if the two assets read the same, the
+    drive reporting is doing nothing.
+    * Only the door and the button name a `body1` one level too deep. The
+      sliding containers name their part directly, so the warning is specific
+      rather than a property of the whole file.
+    '''
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "root"
+{
+    def Scope "Materials"
+    {
+        def Material "Steel"
+        {
+            token outputs:surface.connect = </root/Materials/Steel/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.72, 0.74, 0.76)
+                float inputs:metallic = 0.8
+                float inputs:roughness = 0.25
+                token outputs:surface
+            }
+        }
+
+        def Material "Plastic"
+        {
+            token outputs:surface.connect = </root/Materials/Plastic/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.15, 0.16, 0.18)
+                float inputs:roughness = 0.7
+                token outputs:surface
+            }
+        }
+    }
+
+    def Xform "Dishwasher_Body001"
+    {
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0, 0, 0), (0.6, 0.6, 0.85)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Steel>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0, 0, 0), (0.6, 0, 0), (0.6, 0.6, 0), (0, 0.6, 0), (0, 0, 0.85), (0.6, 0, 0.85), (0.6, 0.6, 0.85), (0, 0.6, 0.85)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+    }
+
+    def Xform "Dishwasher_Door001" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+    )
+    {
+        def Xform "Dishwasher_Door001"
+        {
+            def Mesh "geo" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+            )
+            {
+                float3[] extent = [(0.01, -0.02, 0.02), (0.59, 0, 0.83)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                rel material:binding = </root/Materials/Steel>
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                point3f[] points = [(0.01, -0.02, 0.02), (0.59, -0.02, 0.02), (0.59, 0, 0.02), (0.01, 0, 0.02), (0.01, -0.02, 0.83), (0.59, -0.02, 0.83), (0.59, 0, 0.83), (0.01, 0, 0.83)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 15
+            float drive:angular:physics:stiffness = 120
+            float drive:angular:physics:targetPosition = 0
+            uniform token physics:axis = "X"
+            rel physics:body0 = </root/Dishwasher_Body001>
+            rel physics:body1 = </root/Dishwasher_Door001/Dishwasher_Door001>
+            point3f physics:localPos0 = (0.3, 0, 0.02)
+            point3f physics:localPos1 = (0.3, 0, 0.02)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 30
+        }
+    }
+
+    def Xform "Dishwasher_Container001" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+    )
+    {
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0.05, 0.05, 0.2), (0.55, 0.55, 0.3)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Plastic>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0.05, 0.05, 0.2), (0.55, 0.05, 0.2), (0.55, 0.55, 0.2), (0.05, 0.55, 0.2), (0.05, 0.05, 0.3), (0.55, 0.05, 0.3), (0.55, 0.55, 0.3), (0.05, 0.55, 0.3)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PhysicsPrismaticJoint "PrismaticJoint"
+        {
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </root/Dishwasher_Body001>
+            rel physics:body1 = </root/Dishwasher_Container001>
+            point3f physics:localPos0 = (0.3, 0.3, 0.25)
+            point3f physics:localPos1 = (0.3, 0.3, 0.25)
+            float physics:lowerLimit = -0.3
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Dishwasher_Container002" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+    )
+    {
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0.05, 0.05, 0.45), (0.55, 0.55, 0.55)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Plastic>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0.05, 0.05, 0.45), (0.55, 0.05, 0.45), (0.55, 0.55, 0.45), (0.05, 0.55, 0.45), (0.05, 0.05, 0.55), (0.55, 0.05, 0.55), (0.55, 0.55, 0.55), (0.05, 0.55, 0.55)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PhysicsPrismaticJoint "PrismaticJoint"
+        {
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </root/Dishwasher_Body001>
+            rel physics:body1 = </root/Dishwasher_Container002>
+            point3f physics:localPos0 = (0.3, 0.3, 0.5)
+            point3f physics:localPos1 = (0.3, 0.3, 0.5)
+            float physics:lowerLimit = -0.3
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Dishwasher_Button001" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+    )
+    {
+        def Xform "Dishwasher_Button001"
+        {
+            def Mesh "geo" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+            )
+            {
+                float3[] extent = [(0.25, -0.02, 0.85), (0.35, 0, 0.88)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                rel material:binding = </root/Materials/Plastic>
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                point3f[] points = [(0.25, -0.02, 0.85), (0.35, -0.02, 0.85), (0.35, 0, 0.85), (0.25, 0, 0.85), (0.25, -0.02, 0.88), (0.35, -0.02, 0.88), (0.35, 0, 0.88), (0.25, 0, 0.88)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def PhysicsPrismaticJoint "PrismaticJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:linear"]
+        )
+        {
+            float drive:linear:physics:damping = 0.00003
+            float drive:linear:physics:stiffness = 0.0003
+            float drive:linear:physics:targetPosition = -0.05
+            uniform token physics:axis = "Y"
+            rel physics:body0 = </root/Dishwasher_Body001>
+            rel physics:body1 = </root/Dishwasher_Button001/Dishwasher_Button001>
+            point3f physics:localPos0 = (0.3, 0, 0.865)
+            point3f physics:localPos1 = (0.3, 0, 0.865)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 0.003
+        }
+    }
+}
+

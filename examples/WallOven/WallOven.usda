@@ -1,0 +1,148 @@
+#usda 1.0
+(
+    defaultPrim = "root"
+    doc = """Wall oven: a weld is structure, not a missing degree of freedom.
+
+    `Body001 --revolute--> Door001 --fixed--> Door001_Clear`. The glass panel is
+    welded onto the door with a `PhysicsFixedJoint`, which has no degree of
+    freedom and therefore never gets a slider -- but it does place the glass
+    relative to the door and carry it along when the door swings.
+
+    Treating that weld like a joint type the reader genuinely cannot read, and
+    dropping it, leaves both the body and the glass looking like unconnected
+    roots. Whichever comes first in stage-traversal order then wins the root,
+    the door's real hinge becomes unreachable from it, and the door swings
+    about a fabricated axis through the origin. The distinction this asset
+    exists to pin: announcing a gap is not the same thing as closing it.
+    """
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "root"
+{
+    def Scope "Materials"
+    {
+        def Material "Enamel"
+        {
+            token outputs:surface.connect = </root/Materials/Enamel/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.12, 0.12, 0.13)
+                float inputs:roughness = 0.35
+                token outputs:surface
+            }
+        }
+
+        def Material "Glass"
+        {
+            token outputs:surface.connect = </root/Materials/Glass/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.2, 0.24, 0.26)
+                float inputs:opacity = 0.4
+                float inputs:roughness = 0.05
+                token outputs:surface
+            }
+        }
+    }
+
+    def Xform "WallOven_Body001" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 35
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0, 0, 0), (0.6, 0.55, 0.6)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Enamel>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0, 0, 0), (0.6, 0, 0), (0.6, 0.55, 0), (0, 0.55, 0), (0, 0, 0.6), (0.6, 0, 0.6), (0.6, 0.55, 0.6), (0, 0.55, 0.6)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+    }
+
+    def Xform "WallOven_Door001" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 6
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0.01, -0.03, 0.02), (0.59, 0, 0.58)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Enamel>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0.01, -0.03, 0.02), (0.59, -0.03, 0.02), (0.59, 0, 0.02), (0.01, 0, 0.02), (0.01, -0.03, 0.58), (0.59, -0.03, 0.58), (0.59, 0, 0.58), (0.01, 0, 0.58)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint"
+        {
+            uniform token physics:axis = "X"
+            rel physics:body0 = </root/WallOven_Body001>
+            rel physics:body1 = </root/WallOven_Door001>
+            point3f physics:localPos0 = (0.3, 0, 0.02)
+            point3f physics:localPos1 = (0.3, 0, 0.02)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 90
+        }
+    }
+
+    def Xform "WallOven_Door001_Clear" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 1.5
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0.08, -0.031, 0.1), (0.52, -0.029, 0.5)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Glass>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0.08, -0.031, 0.1), (0.52, -0.031, 0.1), (0.52, -0.029, 0.1), (0.08, -0.029, 0.1), (0.08, -0.031, 0.5), (0.52, -0.031, 0.5), (0.52, -0.029, 0.5), (0.08, -0.029, 0.5)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PhysicsFixedJoint "FixedJoint"
+        {
+            rel physics:body0 = </root/WallOven_Door001>
+            rel physics:body1 = </root/WallOven_Door001_Clear>
+            point3f physics:localPos0 = (0.3, -0.03, 0.3)
+            point3f physics:localPos1 = (0.3, -0.03, 0.3)
+        }
+    }
+}
+

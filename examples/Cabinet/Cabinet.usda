@@ -1,0 +1,476 @@
+#usda 1.0
+(
+    defaultPrim = "root"
+    doc = """Five-door cabinet, authored to carry the defects this tool exists to find.
+
+    Deliberate properties, each pinned by a test:
+
+    * The carcass is the static base and carries no rigid-body schema, so
+      neither side of a hinge relationship names a body a physics engine can
+      act on. NVIDIA's PhysicsJointChecker says so independently of this
+      reader, which is the case worth having: two checks, one defect, and a
+      report that must count it once.
+    * Every hinge names a `body1` one level too deep -- a duplicate-named prim
+      nested inside the door, carrying no rigid-body schema. Kinematically the
+      door is obviously what moves; a physics engine acts on the authored path
+      and has nothing to drive. The reader climbs to the door and says so.
+    * Visual and collision geometry are kept apart: a render mesh per part,
+      plus a `Collisions/` scope of `purpose=guide` hulls. `Dishwasher` uses the
+      opposite convention, which is why \"is this mesh visual?\" is answered by
+      `purpose` and never by the presence of a collision schema.
+    * Every door carries a drive whose stiffness and damping are both zero --
+      applied, yet inert. A tool reporting only \"a drive is present\" states the
+      opposite of the truth.
+    * The carcass textures from a shared folder one level up. That reference
+      *resolves* here, so a validator has nothing to say about it -- and it
+      breaks the moment this folder is delivered on its own. \"Every reference
+      resolves\" is not \"this folder works somewhere else\", which is why
+      portability is checked separately.
+    * Two of its materials texture `diffuseColor` from a folder that does not
+      exist on this disk. Three doors share one of them, so the missing-texture
+      report is per material, not per binding.
+    * Four doors swing one way and the fifth the other, so a sign error in the
+      degrees-to-radians conversion cannot hide behind symmetry.
+    """
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "root"
+{
+    def Scope "Materials"
+    {
+        def Material "Body"
+        {
+            token outputs:surface.connect = </root/Materials/Body/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor.connect = </root/Materials/Body/Albedo.outputs:rgb>
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+
+            def Shader "Albedo"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../_shared/wood_albedo.png@
+                float3 outputs:rgb
+            }
+        }
+
+        def Material "DoorPaint"
+        {
+            token outputs:surface.connect = </root/Materials/DoorPaint/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor.connect = </root/Materials/DoorPaint/Albedo.outputs:rgb>
+                float inputs:roughness = 0.4
+                token outputs:surface
+            }
+
+            def Shader "Albedo"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../Cabinet2/textures/door_albedo.png@
+                float3 outputs:rgb
+            }
+        }
+
+        def Material "Trim"
+        {
+            token outputs:surface.connect = </root/Materials/Trim/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor.connect = </root/Materials/Trim/Albedo.outputs:rgb>
+                float inputs:roughness = 0.3
+                token outputs:surface
+            }
+
+            def Shader "Albedo"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../Cabinet2/textures/trim_albedo.png@
+                float3 outputs:rgb
+            }
+        }
+    }
+
+    def Xform "Cabinet" (
+        prepend apiSchemas = ["PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 20
+
+        def Mesh "geo" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            float3[] extent = [(0, 0, 0), (1.8, 0.6, 2)]
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+            rel material:binding = </root/Materials/Body>
+            normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                interpolation = "faceVarying"
+            )
+            point3f[] points = [(0, 0, 0), (1.8, 0, 0), (1.8, 0.6, 0), (0, 0.6, 0), (0, 0, 2), (1.8, 0, 2), (1.8, 0.6, 2), (0, 0.6, 2)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "faceVarying"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Scope "Collisions"
+        {
+            def Mesh "Hull" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                float3[] extent = [(0, 0, 0), (1.8, 0.6, 2)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (1.8, 0, 0), (1.8, 0.6, 0), (0, 0.6, 0), (0, 0, 2), (1.8, 0, 2), (1.8, 0.6, 2), (0, 0.6, 2)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token purpose = "guide"
+                uniform token subdivisionScheme = "none"
+            }
+        }
+    }
+
+    def Xform "Cabinet_Door001" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 2
+
+        def Xform "Cabinet_Door001"
+        {
+            def Mesh "geo" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                float3[] extent = [(0.02, -0.02, 0.1), (0.37, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                rel material:binding = </root/Materials/DoorPaint>
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                point3f[] points = [(0.02, -0.02, 0.1), (0.37, -0.02, 0.1), (0.37, 0, 0.1), (0.02, 0, 0.1), (0.02, -0.02, 1.9), (0.37, -0.02, 1.9), (0.37, 0, 1.9), (0.02, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Scope "Collisions"
+        {
+            def Mesh "Hull" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                float3[] extent = [(0.02, -0.02, 0.1), (0.37, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0.02, -0.02, 0.1), (0.37, -0.02, 0.1), (0.37, 0, 0.1), (0.02, 0, 0.1), (0.02, -0.02, 1.9), (0.37, -0.02, 1.9), (0.37, 0, 1.9), (0.02, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token purpose = "guide"
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0
+            float drive:angular:physics:stiffness = 0
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Cabinet>
+            rel physics:body1 = </root/Cabinet_Door001/Cabinet_Door001>
+            point3f physics:localPos0 = (0.02, 0, 1)
+            point3f physics:localPos1 = (0.02, 0, 1)
+            float physics:lowerLimit = -90
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Cabinet_Door002" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 2
+
+        def Xform "Cabinet_Door002"
+        {
+            def Mesh "geo" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                float3[] extent = [(0.376, -0.02, 0.1), (0.726, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                rel material:binding = </root/Materials/DoorPaint>
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                point3f[] points = [(0.376, -0.02, 0.1), (0.726, -0.02, 0.1), (0.726, 0, 0.1), (0.376, 0, 0.1), (0.376, -0.02, 1.9), (0.726, -0.02, 1.9), (0.726, 0, 1.9), (0.376, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Scope "Collisions"
+        {
+            def Mesh "Hull" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                float3[] extent = [(0.376, -0.02, 0.1), (0.726, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0.376, -0.02, 0.1), (0.726, -0.02, 0.1), (0.726, 0, 0.1), (0.376, 0, 0.1), (0.376, -0.02, 1.9), (0.726, -0.02, 1.9), (0.726, 0, 1.9), (0.376, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token purpose = "guide"
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0
+            float drive:angular:physics:stiffness = 0
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Cabinet>
+            rel physics:body1 = </root/Cabinet_Door002/Cabinet_Door002>
+            point3f physics:localPos0 = (0.376, 0, 1)
+            point3f physics:localPos1 = (0.376, 0, 1)
+            float physics:lowerLimit = -90
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Cabinet_Door003" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 2
+
+        def Xform "Cabinet_Door003"
+        {
+            def Mesh "geo" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                float3[] extent = [(0.732, -0.02, 0.1), (1.082, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                rel material:binding = </root/Materials/DoorPaint>
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                point3f[] points = [(0.732, -0.02, 0.1), (1.082, -0.02, 0.1), (1.082, 0, 0.1), (0.732, 0, 0.1), (0.732, -0.02, 1.9), (1.082, -0.02, 1.9), (1.082, 0, 1.9), (0.732, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Scope "Collisions"
+        {
+            def Mesh "Hull" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                float3[] extent = [(0.732, -0.02, 0.1), (1.082, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0.732, -0.02, 0.1), (1.082, -0.02, 0.1), (1.082, 0, 0.1), (0.732, 0, 0.1), (0.732, -0.02, 1.9), (1.082, -0.02, 1.9), (1.082, 0, 1.9), (0.732, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token purpose = "guide"
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0
+            float drive:angular:physics:stiffness = 0
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Cabinet>
+            rel physics:body1 = </root/Cabinet_Door003/Cabinet_Door003>
+            point3f physics:localPos0 = (0.732, 0, 1)
+            point3f physics:localPos1 = (0.732, 0, 1)
+            float physics:lowerLimit = -90
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Cabinet_Door004" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 2
+
+        def Xform "Cabinet_Door004"
+        {
+            def Mesh "geo" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                float3[] extent = [(1.088, -0.02, 0.1), (1.438, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                rel material:binding = </root/Materials/Trim>
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                point3f[] points = [(1.088, -0.02, 0.1), (1.438, -0.02, 0.1), (1.438, 0, 0.1), (1.088, 0, 0.1), (1.088, -0.02, 1.9), (1.438, -0.02, 1.9), (1.438, 0, 1.9), (1.088, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Scope "Collisions"
+        {
+            def Mesh "Hull" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                float3[] extent = [(1.088, -0.02, 0.1), (1.438, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(1.088, -0.02, 0.1), (1.438, -0.02, 0.1), (1.438, 0, 0.1), (1.088, 0, 0.1), (1.088, -0.02, 1.9), (1.438, -0.02, 1.9), (1.438, 0, 1.9), (1.088, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token purpose = "guide"
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0
+            float drive:angular:physics:stiffness = 0
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Cabinet>
+            rel physics:body1 = </root/Cabinet_Door004/Cabinet_Door004>
+            point3f physics:localPos0 = (1.088, 0, 1)
+            point3f physics:localPos1 = (1.088, 0, 1)
+            float physics:lowerLimit = -90
+            float physics:upperLimit = 0
+        }
+    }
+
+    def Xform "Cabinet_Door005" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        float physics:mass = 2
+
+        def Xform "Cabinet_Door005"
+        {
+            def Mesh "geo" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                float3[] extent = [(1.444, -0.02, 0.1), (1.794, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                rel material:binding = </root/Materials/Trim>
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                point3f[] points = [(1.444, -0.02, 0.1), (1.794, -0.02, 0.1), (1.794, 0, 0.1), (1.444, 0, 0.1), (1.444, -0.02, 1.9), (1.794, -0.02, 1.9), (1.794, 0, 1.9), (1.444, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Scope "Collisions"
+        {
+            def Mesh "Hull" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                float3[] extent = [(1.444, -0.02, 0.1), (1.794, 0, 1.9)]
+                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+                normal3f[] normals = [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(1.444, -0.02, 0.1), (1.794, -0.02, 0.1), (1.794, 0, 0.1), (1.444, 0, 0.1), (1.444, -0.02, 1.9), (1.794, -0.02, 1.9), (1.794, 0, 1.9), (1.444, 0, 1.9)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1), (0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "faceVarying"
+                )
+                uniform token purpose = "guide"
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def PhysicsRevoluteJoint "RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 0
+            float drive:angular:physics:stiffness = 0
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </root/Cabinet>
+            rel physics:body1 = </root/Cabinet_Door005/Cabinet_Door005>
+            point3f physics:localPos0 = (1.794, 0, 1)
+            point3f physics:localPos1 = (1.794, 0, 1)
+            float physics:lowerLimit = 0
+            float physics:upperLimit = 90
+        }
+    }
+}
+
