@@ -4,7 +4,7 @@
 the half it does own: once six independent checks have each produced a verdict,
 what makes them one report rather than six.
 
-Decided 2026-08-07, implemented in `app/findings.py`.
+Implemented in `app/findings.py`.
 
 ## The decision
 
@@ -140,9 +140,9 @@ resolved onto parts, so `IndexedPrimvarChecker ×66` was a number with nothing
 behind it. Scope now comes from the issue's own resolution regardless of
 severity.
 
-**Reading at the wrong granularity manufactured 64 faults**, found on
-2026-08-07 against `Room.usd`, the assembled 47-asset scene. A part was
-defined as a direct child of the root prim. That is true of a delivered asset
+**Reading at the wrong granularity manufactured 64 faults**, found against an
+assembled 47-asset scene. A part was defined as a direct child of the root
+prim. That is true of a delivered asset
 and false of a scene, which nests its parts one level deeper under a per-
 placement Xform, so every appliance became a single part: 50 found where the
 stage carries 156 rigid bodies, and 79 joints collapsed onto 13 child parts.

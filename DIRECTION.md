@@ -1,9 +1,8 @@
 # Where the boundary is, and why
 
 This records one decision: **which half of the problem this repo owns.** It was
-settled on 2026-08-05 after discovering that the other half already exists,
-and it is written down because the reasoning is easy to lose and expensive to
-re-litigate.
+settled after discovering that the other half already exists, and it is written
+down because the reasoning is easy to lose and expensive to re-litigate.
 
 ## The decision
 
