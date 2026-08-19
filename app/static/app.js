@@ -1465,6 +1465,11 @@ function installViewportInput() {
 function renderObjectList() {
   const host = $("objectList");
   host.replaceChildren();
+  /* Which asset the rows on screen belong to. Switching assets replaces this
+   * list, and until it does, everything visible still describes the previous
+   * one -- including a settled pose. Anything waiting for a switch to land
+   * needs a marker that changes; a pose that reads zero does not. */
+  host.dataset.asset = state.assetKey ?? "";
 
   const parts = state.manifest.parts;
   const driveable = parts.filter((part) => jointOfPart(part.id));

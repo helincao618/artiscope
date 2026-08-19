@@ -156,16 +156,33 @@ def _wait_for_tour(page) -> None:
 
 
 def _settle_after_load(page) -> None:
-    """Wait out the intro sweep so the asset is back at its zero pose.
+    """Wait for the selected asset to be on screen and back at its zero pose.
 
-    Loading an asset plays every joint through its range once. Tests that care
-    about the pose have to let that finish, or they read a frame of animation.
+    Two waits rather than one conjunction, so a failure says which half went
+    wrong: the asset never arrived, or the sweep never ended.
+
+    The first one matters more than it looks. A settled pose is also what the
+    *previous* asset shows while a switch is still in flight, so waiting on the
+    pose alone lets a test assert against whichever asset happened to load
+    first. The parts list carries the key it was built from, which is the
+    marker that actually changes. Its budget is generous because every UI run
+    starts on a cold cache -- `base_url` points the service at a fresh
+    directory -- so a first load pays for a GLB export and a validator pass
+    before anything reaches the page.
     """
+    page.wait_for_function(
+        "() => {"
+        "  const host = document.getElementById('objectList');"
+        "  const picker = document.getElementById('assetSelect');"
+        "  return !!host && !!picker && host.dataset.asset === picker.value;"
+        "}",
+        timeout=90_000,
+    )
     page.wait_for_timeout(1500)
     page.wait_for_function(
         "() => [...document.querySelectorAll('.readout')]"
         ".every(r => Number.parseFloat(r.textContent) === 0)",
-        timeout=15_000,
+        timeout=30_000,
     )
 
 
